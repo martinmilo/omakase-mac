@@ -1,0 +1,6 @@
+.DS_Store
+.claude/
+
+# Generated at runtime by bootstrap.sh
+Brewfile
+dotfiles/.zshrc
