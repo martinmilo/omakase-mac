@@ -1,6 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Require Bash 4+ (macOS ships 3.2 which lacks fractional read -t, local -a, etc.)
+if (( BASH_VERSINFO[0] < 4 )); then
+  echo "Bash ${BASH_VERSION} is too old. Installing modern Bash via Homebrew..."
+  if ! command -v brew &>/dev/null; then
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+  fi
+  brew install bash
+  echo "Re-launching with Bash 5..."
+  exec "$(brew --prefix)/bin/bash" "$0" "$@"
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 DRY_RUN=false
