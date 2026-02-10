@@ -439,7 +439,7 @@ cat > "$BREWFILE" <<'BREW_BASE'
 tap "oven-sh/bun"
 brew "git"
 brew "mise"
-brew "bun"
+brew "oven-sh/bun/bun"
 brew "gh"
 
 # ─── CLI power tools ─────────────────────────────────
@@ -459,8 +459,17 @@ cask "hammerspoon"
 cask "font-jetbrains-mono"
 BREW_BASE
 
-# Rust needs rustup via brew, PHP needs composer
+# Stack-specific brew dependencies
 for idx in "${CHOSEN_STACKS[@]}"; do
+  if (( idx == 0 )); then
+    echo "" >> "$BREWFILE"
+    echo "# ─── Ruby build deps ────────────────────────────────────" >> "$BREWFILE"
+    echo 'brew "openssl@3"' >> "$BREWFILE"
+    echo 'brew "readline"' >> "$BREWFILE"
+    echo 'brew "libyaml"' >> "$BREWFILE"
+    echo 'brew "gmp"' >> "$BREWFILE"
+    echo 'brew "autoconf"' >> "$BREWFILE"
+  fi
   if (( idx == 4 )); then
     echo "" >> "$BREWFILE"
     echo "# ─── Rust toolchain ─────────────────────────────────────" >> "$BREWFILE"
@@ -468,7 +477,21 @@ for idx in "${CHOSEN_STACKS[@]}"; do
   fi
   if (( idx == 5 )); then
     echo "" >> "$BREWFILE"
-    echo "# ─── PHP ────────────────────────────────────────────────" >> "$BREWFILE"
+    echo "# ─── PHP build deps ─────────────────────────────────────" >> "$BREWFILE"
+    echo 'brew "autoconf"' >> "$BREWFILE"
+    echo 'brew "bison"' >> "$BREWFILE"
+    echo 'brew "re2c"' >> "$BREWFILE"
+    echo 'brew "pkg-config"' >> "$BREWFILE"
+    echo 'brew "openssl@3"' >> "$BREWFILE"
+    echo 'brew "bzip2"' >> "$BREWFILE"
+    echo 'brew "icu4c"' >> "$BREWFILE"
+    echo 'brew "libedit"' >> "$BREWFILE"
+    echo 'brew "libiconv"' >> "$BREWFILE"
+    echo 'brew "libjpeg"' >> "$BREWFILE"
+    echo 'brew "libxml2"' >> "$BREWFILE"
+    echo 'brew "libzip"' >> "$BREWFILE"
+    echo 'brew "oniguruma"' >> "$BREWFILE"
+    echo 'brew "zlib"' >> "$BREWFILE"
     echo 'brew "composer"' >> "$BREWFILE"
   fi
 done
@@ -598,7 +621,16 @@ for idx in "${CHOSEN_STACKS[@]}"; do
 done
 
 ALL_PLUGINS="${BASE_PLUGINS}${STACK_PLUGINS}"
-ZSHRC="$SCRIPT_DIR/dotfiles/.zshrc"
+ZSHRC="$HOME/.zshrc"
+
+# Back up existing .zshrc (skip if it's our symlink from a previous run)
+if [ -f "$ZSHRC" ] && [ ! -L "$ZSHRC" ]; then
+  BACKUP="$HOME/.zshrc.backup.$(date +%Y%m%d%H%M%S)"
+  echo "    Backing up existing .zshrc to $BACKUP"
+  mv "$ZSHRC" "$BACKUP"
+elif [ -L "$ZSHRC" ]; then
+  rm "$ZSHRC"
+fi
 
 cat > "$ZSHRC" <<ZSHRC_EOF
 # Oh My Zsh
@@ -626,7 +658,28 @@ mkcd() { mkdir -p "\$1" && cd "\$1"; }
 ports() { lsof -iTCP -sTCP:LISTEN -n -P; }
 ZSHRC_EOF
 
-echo "    .zshrc written to $ZSHRC"
+# PostgreSQL aliases (only when a stack is selected, since postgres comes with stacks)
+if $ANY_STACK; then
+  cat >> "$ZSHRC" <<'ZSHRC_PG'
+
+# PostgreSQL (mise)
+PGDATA="$(mise where postgres)/data"
+alias pg-start='pg_ctl -D "$PGDATA" -l "$HOME/.postgres.log" start'
+alias pg-stop='pg_ctl -D "$PGDATA" stop'
+alias pg-restart='pg_ctl -D "$PGDATA" -l "$HOME/.postgres.log" restart'
+alias pg-status='pg_ctl -D "$PGDATA" status'
+ZSHRC_PG
+fi
+
+if $INSTALL_CLAUDE_CODE; then
+  cat >> "$ZSHRC" <<'ZSHRC_CC'
+
+# Claude Code (installed via bun)
+export PATH="$HOME/.bun/bin:$PATH"
+ZSHRC_CC
+fi
+
+echo "    .zshrc written to $HOME/.zshrc"
 
 if $DRY_RUN; then
   echo ""
@@ -635,28 +688,19 @@ if $DRY_RUN; then
   echo ""
 fi
 
-# ─── Symlinks ────────────────────────────────────────────────────────────────
+# ─── Dotfiles ─────────────────────────────────────────────────────────────────
 
 if $DRY_RUN; then
-  echo -e "${DIM}==> [dry-run] Would symlink .zshrc → $HOME/.zshrc${RESET}"
-  echo -e "${DIM}==> [dry-run] Would symlink karabiner.json → $HOME/.config/karabiner/karabiner.json${RESET}"
-  echo -e "${DIM}==> [dry-run] Would symlink init.lua → $HOME/.hammerspoon/init.lua${RESET}"
+  echo -e "${DIM}==> [dry-run] Would copy karabiner.json → $HOME/.config/karabiner/karabiner.json${RESET}"
+  echo -e "${DIM}==> [dry-run] Would copy init.lua → $HOME/.hammerspoon/init.lua${RESET}"
 else
-  echo "==> Symlinking .zshrc"
-  if [ -f "$HOME/.zshrc" ] && [ ! -L "$HOME/.zshrc" ]; then
-    BACKUP="$HOME/.zshrc.backup.$(date +%Y%m%d%H%M%S)"
-    echo "    Backing up existing .zshrc to $BACKUP"
-    mv "$HOME/.zshrc" "$BACKUP"
-  fi
-  ln -sf "$ZSHRC" "$HOME/.zshrc"
-
-  echo "==> Symlinking Karabiner config"
+  echo "==> Copying Karabiner config"
   mkdir -p "$HOME/.config/karabiner"
-  ln -sf "$SCRIPT_DIR/dotfiles/karabiner.json" "$HOME/.config/karabiner/karabiner.json"
+  cp "$SCRIPT_DIR/dotfiles/karabiner.json" "$HOME/.config/karabiner/karabiner.json"
 
-  echo "==> Symlinking Hammerspoon config"
+  echo "==> Copying Hammerspoon config"
   mkdir -p "$HOME/.hammerspoon"
-  ln -sf "$SCRIPT_DIR/dotfiles/init.lua" "$HOME/.hammerspoon/init.lua"
+  cp "$SCRIPT_DIR/dotfiles/init.lua" "$HOME/.hammerspoon/init.lua"
 fi
 
 # ─── Claude Code ──────────────────────────────────────────────────────────────
@@ -712,6 +756,9 @@ else
         mise use --global java@latest; mise use --global postgres@18.1 ;;
     esac
   done
+
+  # Activate mise so gem/pip/composer resolve to mise-installed runtimes
+  eval "$(mise activate bash)"
 
   for idx in "${CHOSEN_STACKS[@]}"; do
     case $idx in
@@ -911,9 +958,9 @@ else
   defaults write com.apple.TextEdit PlainTextEncoding -int 4
   defaults write com.apple.TextEdit PlainTextEncodingForWrite -int 4
 
-  # ── Safari Developer ──────────────────────────────────
-  defaults write com.apple.Safari IncludeDevelopMenu -bool true
-  defaults write com.apple.Safari WebKitDeveloperExtrasEnabledPreferenceKey -bool true
+  # ── Safari Developer (may fail without Full Disk Access) ──
+  defaults write com.apple.Safari IncludeDevelopMenu -bool true 2>/dev/null || true
+  defaults write com.apple.Safari WebKitDeveloperExtrasEnabledPreferenceKey -bool true 2>/dev/null || true
 
   # ── Developer directory ───────────────────────────────
   mkdir -p "$HOME/Developer"
