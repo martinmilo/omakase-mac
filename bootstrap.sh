@@ -3,14 +3,17 @@ set -euo pipefail
 
 # Require Bash 4+ (macOS ships 3.2 which lacks fractional read -t, local -a, etc.)
 if (( BASH_VERSINFO[0] < 4 )); then
-  echo "Bash ${BASH_VERSION} is too old. Installing modern Bash via Homebrew..."
   if ! command -v brew &>/dev/null; then
+    echo "Bash ${BASH_VERSION} is too old. Installing Homebrew + modern Bash..."
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
     eval "$(/opt/homebrew/bin/brew shellenv)"
+    brew install bash
   fi
-  brew install bash
-  echo "Re-launching with Bash 5..."
-  exec "$(brew --prefix)/bin/bash" "$0" "$@"
+  BREW_BASH="$(brew --prefix)/bin/bash"
+  if [[ ! -x "$BREW_BASH" ]]; then
+    brew install bash
+  fi
+  exec "$BREW_BASH" "$0" "$@"
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -433,6 +436,7 @@ BREWFILE="$SCRIPT_DIR/Brewfile"
 
 cat > "$BREWFILE" <<'BREW_BASE'
 # ─── Base (always installed) ──────────────────────────
+tap "oven-sh/bun"
 brew "git"
 brew "mise"
 brew "bun"
