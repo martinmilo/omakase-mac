@@ -694,13 +694,23 @@ if $DRY_RUN; then
   echo -e "${DIM}==> [dry-run] Would copy karabiner.json → $HOME/.config/karabiner/karabiner.json${RESET}"
   echo -e "${DIM}==> [dry-run] Would copy init.lua → $HOME/.hammerspoon/init.lua${RESET}"
 else
-  echo "==> Copying Karabiner config"
-  mkdir -p "$HOME/.config/karabiner"
-  cp "$SCRIPT_DIR/dotfiles/karabiner.json" "$HOME/.config/karabiner/karabiner.json"
+  if [ -f "$SCRIPT_DIR/dotfiles/karabiner.json" ]; then
+    echo "==> Copying Karabiner config"
+    mkdir -p "$HOME/.config/karabiner"
+    rm -f "$HOME/.config/karabiner/karabiner.json"
+    cp "$SCRIPT_DIR/dotfiles/karabiner.json" "$HOME/.config/karabiner/karabiner.json"
+  else
+    echo "==> Skipping Karabiner config (dotfiles/karabiner.json not found)"
+  fi
 
-  echo "==> Copying Hammerspoon config"
-  mkdir -p "$HOME/.hammerspoon"
-  cp "$SCRIPT_DIR/dotfiles/init.lua" "$HOME/.hammerspoon/init.lua"
+  if [ -f "$SCRIPT_DIR/dotfiles/init.lua" ]; then
+    echo "==> Copying Hammerspoon config"
+    mkdir -p "$HOME/.hammerspoon"
+    rm -f "$HOME/.hammerspoon/init.lua"
+    cp "$SCRIPT_DIR/dotfiles/init.lua" "$HOME/.hammerspoon/init.lua"
+  else
+    echo "==> Skipping Hammerspoon config (dotfiles/init.lua not found)"
+  fi
 fi
 
 # ─── Claude Code ──────────────────────────────────────────────────────────────
