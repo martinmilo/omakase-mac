@@ -717,9 +717,13 @@ fi
 
 if $INSTALL_CLAUDE_CODE; then
   if $DRY_RUN; then
-    echo -e "${DIM}==> [dry-run] Would install Claude Code via bun${RESET}"
+    echo -e "${DIM}==> [dry-run] Would install Claude Code via bun (+ node@lts)${RESET}"
   else
     echo "==> Installing Claude Code"
+    if ! command -v node &>/dev/null; then
+      mise use --global node@lts
+      eval "$(mise activate bash)"
+    fi
     if ! command -v claude &>/dev/null; then
       bun install -g @anthropic-ai/claude-code
     else
